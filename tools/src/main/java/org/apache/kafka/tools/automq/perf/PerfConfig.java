@@ -60,6 +60,7 @@ public class PerfConfig {
     public final int producersPerTopic;
     public final int groupsPerTopic;
     public final int consumersPerGroup;
+    public final boolean awaitTopicReady;
     public final int recordSize;
     public final double randomRatio;
     public final int randomPoolSize;
@@ -73,6 +74,8 @@ public class PerfConfig {
     public final int reportingIntervalSeconds;
     public final String valueSchema;
     public final String valuesFile;
+    public final boolean reuseTopics; // Added for --reuse-topics
+    public final String catchupTopicPrefix; // Added for --catchup-topic-prefix
 
     public PerfConfig(String[] args) {
         ArgumentParser parser = parser();
@@ -100,6 +103,7 @@ public class PerfConfig {
         producersPerTopic = ns.getInt("producersPerTopic");
         groupsPerTopic = ns.getInt("groupsPerTopic");
         consumersPerGroup = ns.getInt("consumersPerGroup");
+        awaitTopicReady = ns.getBoolean("awaitTopicReady");
         recordSize = ns.getInt("recordSize");
         randomRatio = ns.getDouble("randomRatio");
         randomPoolSize = ns.getInt("randomPoolSize");
@@ -113,6 +117,8 @@ public class PerfConfig {
         reportingIntervalSeconds = ns.getInt("reportingIntervalSeconds");
         valueSchema = ns.getString("valueSchema");
         valuesFile = ns.get("valuesFile");
+        reuseTopics = ns.getBoolean("reuseTopics"); // Added for --reuse-topics
+        catchupTopicPrefix = ns.getString("catchupTopicPrefix"); // Added for --catchup-topic-prefix
 
         if (backlogDurationSeconds < groupsPerTopic * groupStartDelaySeconds) {
             throw new IllegalArgumentException(String.format("BACKLOG_DURATION_SECONDS(%d) should not be less than GROUPS_PER_TOPIC(%d) * GROUP_START_DELAY_SECONDS(%d)",
@@ -131,6 +137,19 @@ public class PerfConfig {
             .dest("bootstrapServer")
             .metavar("BOOTSTRAP_SERVER")
             .help("The AutoMQ bootstrap server.");
+
+        parser.addArgument("--reuse-topics")
+            .action(storeTrue())
+            .dest("reuseTopics")
+            .help("Reuse existing topics with the given prefix instead of creating new ones.");
+
+        // Add the new parameter
+        parser.addArgument("--catchup-topic-prefix")
+            .type(String.class)
+            .dest("catchupTopicPrefix")
+            .metavar("CATCHUP_TOPIC_PREFIX")
+            .help("The topic prefix for catch-up read testing. Reuses existing topics with this prefix and skips message accumulation phase.");
+
         parser.addArgument("-F", "--common-config-file")
             .type(String.class)
             .dest("commonConfigFile")
@@ -193,6 +212,12 @@ public class PerfConfig {
             .dest("consumersPerGroup")
             .metavar("CONSUMERS_PER_GROUP")
             .help("The number of consumers per group.");
+        parser.addArgument("--await-topic-ready")
+            .setDefault(true)
+            .type(Boolean.class)
+            .dest("awaitTopicReady")
+            .metavar("AWAIT_TOPIC_READY")
+            .help("Use produce / consume detect to check topic readiness.");
         parser.addArgument("-s", "--record-size")
             .setDefault(1024)
             .type(positiveInteger())
